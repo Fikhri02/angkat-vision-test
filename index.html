@@ -65,6 +65,19 @@ th{color:var(--muted);font-weight:500}
 .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--sky);border-radius:4px}
 .bar.open i{background:var(--good)}
 [hidden]{display:none!important}
+#timer{position:absolute;left:16px;bottom:12px;font:700 2rem/1 var(--mono);color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.6);font-variant-numeric:tabular-nums}
+#phase{position:absolute;left:16px;top:14px;font:600 .85rem var(--mono);color:#fff;background:rgba(0,0,0,.55);padding:4px 10px;border-radius:999px}
+#phase:empty{display:none}
+button.go{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+button.stop{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.res td.sc{font-weight:700}
+.grade{margin-top:10px;border-radius:10px;padding:10px 12px;border:1px solid var(--line)}
+.grade b{font:700 1.4rem var(--mono)}
+.grade.A,.grade.B{background:var(--good-soft);border-color:var(--good)}
+.grade.C{background:var(--warn-soft);border-color:var(--warn)}
+.grade.D,.grade.E,.grade.F{background:var(--bad-soft);border-color:var(--bad)}
+.beat{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--line);vertical-align:middle;margin-left:6px}
+.beat.on{background:var(--accent)}
 </style>
 </head>
 <body>
@@ -83,12 +96,18 @@ th{color:var(--muted);font-weight:500}
       <div id="cue"></div>
       <div id="noPerson"></div>
       <div id="bigCount">0</div>
+      <div id="timer"></div>
+      <div id="phase"></div>
     </div>
     <div class="controls">
       <label>Mode
         <select id="exercise">
           <option value="lift">Lifting coach</option>
           <option value="jacks">Jumping jacks</option>
+          <option value="segak-step">SEGAK 2: Naik Turun Bangku</option>
+          <option value="segak-pushup">SEGAK 3: Tekan Tubi</option>
+          <option value="segak-curlup">SEGAK 4: Ringkuk Tubi Separa</option>
+          <option value="segak-reach">SEGAK 5: Jangkauan Melunjur</option>
         </select>
       </label>
       <button id="btnCam" type="button">Start webcam</button>
@@ -112,6 +131,93 @@ th{color:var(--muted);font-weight:500}
   </section>
 
   <aside class="card">
+    <div id="segakPanel" hidden>
+      <h2 style="margin-top:0">Student</h2>
+      <div class="th">
+        <span>Age on 31 Dec</span><select id="sAge"><option>10</option><option>11</option><option>12</option><option>13</option><option>14</option><option selected>15</option><option>16</option><option>17</option></select>
+        <span>Gender</span><select id="sGender"><option value="M">Lelaki</option><option value="F">Perempuan</option></select>
+        <span>Height (cm)</span><input id="sHeight" type="number" value="160">
+        <span>Weight (kg)</span><input id="sWeight" type="number" value="50">
+        <span>BMI (recorded, not graded)</span><b id="sBmi" style="font-family:var(--mono)">–</b>
+      </div>
+
+      <div id="sp-step" class="sp" hidden>
+        <h2>Naik Turun Bangku 3 Minit</h2>
+        <div class="metrics">
+          <div class="m" id="stCadBox"><span>Pace</span><b id="stCad">–</b><small>steps per minute, target 96</small></div>
+          <div class="m"><span>Feet</span><b id="stFeet" style="font-size:1rem">–</b><small>up = on the bench</small></div>
+          <div class="m" id="stKneeBox"><span>Bent-knee flags</span><b id="stKneeN">0</b><small>knees must be straight at the top and bottom</small></div>
+          <div class="m"><span>Beat</span><b><span class="beat" id="stBeat"></span></b><small>96 per minute</small></div>
+        </div>
+        <div class="th" style="margin-top:10px">
+          <span>Knee bend allowed (°)</span><input id="stKnee" type="number" value="20">
+          <span>Pulse for 1 minute</span><input id="stPulse" type="number" placeholder="beats">
+        </div>
+        <div class="controls"><button class="go" data-test="step" type="button">Start test</button><button class="stop" type="button">Stop</button><button id="stSave" type="button">Save pulse</button></div>
+        <p class="note">Side view, 30.5 cm bench, start with one foot on it. The page plays the 96 beat/min metronome for 3 minutes: naik, naik, turun, turun. Stopping early means no score. Afterwards sit down; the page times 5 seconds, then 1 minute for the pulse count. Type the pulse in and save it.</p>
+      </div>
+
+      <div id="sp-pushup" class="sp" hidden>
+        <h2 id="puTitle">Tekan Tubi</h2>
+        <div class="metrics">
+          <div class="m"><span>Reps</span><b id="puReps">0</b><small id="puBad">0 not counted</small></div>
+          <div class="m" id="puElbowBox"><span>Elbow</span><b id="puElbow">–</b><small>180° = arms straight</small></div>
+          <div class="m" id="puBodyBox"><span>Body line</span><b id="puBody">–</b><small id="puBodyNote">shoulder–hip–ankle, 180° = straight</small></div>
+          <div class="m"><span>State</span><b id="puState" style="font-size:1rem">–</b></div>
+        </div>
+        <div class="th" style="margin-top:10px">
+          <span>Arms straight above (°)</span><input id="puUp" type="number" value="150">
+          <span>Chest at sponge: elbow below (°)</span><input id="puDown" type="number" value="95">
+          <span>Body straight above (°)</span><input id="puLine" type="number" value="155">
+          <span>End at first bad rep (official)</span><input id="puStrict" type="checkbox" checked>
+        </div>
+        <div class="controls"><button class="go" data-test="pushup" type="button">Start test</button><button class="stop" type="button">Stop</button></div>
+        <p class="note">Side view, whole body in frame. As many reps as possible in 1 minute; chest down to the 10 cm sponge, body straight. Girls do it on the knees (choose Perempuan). The test ends after 6 seconds without a rep.</p>
+      </div>
+
+      <div id="sp-curlup" class="sp" hidden>
+        <h2>Ringkuk Tubi Separa</h2>
+        <div class="metrics">
+          <div class="m"><span>Reps</span><b id="cuReps">0</b><small id="cuBad">0 not counted</small></div>
+          <div class="m"><span>Beat</span><b><span class="beat" id="cuBeat"></span></b><small>up on the high beep, down on the low</small></div>
+          <div class="m" id="cuLiftBox"><span>Shoulder lift</span><b id="cuLift">–</b><small>from lying</small></div>
+          <div class="m" id="cuSlideBox"><span>Finger slide</span><b id="cuSlide">–</b><small>target 10 cm</small></div>
+        </div>
+        <div class="th" style="margin-top:10px">
+          <span>Lift needed (°)</span><input id="cuLiftMin" type="number" value="15">
+          <span>Slide needed (cm)</span><input id="cuSlideMin" type="number" value="8">
+          <span>Timing allowed (± ms)</span><input id="cuTol" type="number" value="600" step="100">
+        </div>
+        <div class="controls"><button class="go" data-test="curlup" type="button">Start test</button><button class="stop" type="button">Stop</button></div>
+        <p class="note">Side view, lying on the mat, knees at 90°, arms straight by the sides. Keep still during the countdown (that sets the starting point). One curl per two beats at 50 beats/min, maximum 25. The test ends after two bad reps in a row or two missed beats in a row. Set the height above; the slide in cm is scaled from it.</p>
+      </div>
+
+      <div id="sp-reach" class="sp" hidden>
+        <h2>Jangkauan Melunjur</h2>
+        <div class="metrics">
+          <div class="m" id="reKneeBox"><span>Knees</span><b id="reKnee">–</b><small>must stay straight</small></div>
+          <div class="m"><span>Camera estimate</span><b id="reEst">–</b><small>box scale, feet at 23 cm</small></div>
+          <div class="m" style="grid-column:1/-1"><span>Hold</span><b id="reHold" style="font-size:1rem">–</b><div class="bar" id="reHoldBar"><i></i></div><small>hold the furthest reach for 3 seconds</small></div>
+        </div>
+        <div class="th" style="margin-top:10px">
+          <span>Knee bend allowed (°)</span><input id="reKneeMax" type="number" value="15">
+          <span>Ruler reading (cm)</span><input id="reVal" type="number">
+        </div>
+        <div class="controls"><button id="reSave" type="button">Save attempt</button><button id="reReset" type="button">Reset attempts</button></div>
+        <p id="reAttempts" class="note">Attempts: none yet (best of 3)</p>
+        <p class="note">Side view, sitting, soles flat against the box. The camera checks the knees and the 3-second hold and suggests a reading; the ruler is the real measurement. An attempt with bent knees doesn't count.</p>
+      </div>
+
+      <h2>Results</h2>
+      <table class="res">
+        <thead><tr><th>Test</th><th>Result</th><th>Score</th></tr></thead>
+        <tbody id="sRes"></tbody>
+      </table>
+      <div class="grade" id="sGrade"><b>–</b> <span id="sGradeText">Complete all four tests for the overall grade.</span></div>
+      <div class="controls"><button id="sCopy" type="button">Copy results</button><button id="sClear" type="button">Clear results</button></div>
+      <p class="note">Scores use the norm tables in Panduan SEGAK (Bahagian Pembangunan Kurikulum, KPM, 2016) for the age and gender above. Each test scores 1–5; the four add up to the A–E grade.</p>
+    </div>
+
     <div id="jackPanel" hidden>
       <div class="metrics">
         <div class="m good" style="grid-column:1/-1"><span>Jumping jacks</span><b id="jCount" style="font-size:2.4rem">0</b><small>full reps: arms above shoulders and feet apart, then back together</small></div>
@@ -181,7 +287,7 @@ const video = $("video"), overlay = $("overlay"), ctx = overlay.getContext("2d")
 const draw = new DrawingUtils(ctx);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-let fileset = null, landmarker = null, modelName = "full", exercise = "lift";
+let fileset = null, landmarker = null, modelName = "full", exercise = "lift", chartMax = 120;
 let mode = "none";            // none | live | replay
 let frozen = false, lastVideoTime = -1, W = 1280, H = 720;
 let recording = false, recStart = 0, frames = [];
@@ -314,6 +420,13 @@ function handle(lm, wl, now) {
   if (mode === "replay") { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
   if (!lm) { $("noPerson").textContent = "No person detected"; return; }
   $("noPerson").textContent = "";
+  if (exercise.startsWith("segak-")) {
+    draw.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "rgba(255,255,255,.75)", lineWidth: 3 });
+    draw.drawLandmarks(lm, { radius: 3, color: "#ffffff", fillColor: "#c8213f" });
+    segakFrame(lm, now);
+    drawChart();
+    return;
+  }
   if (exercise === "jacks") {
     draw.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "rgba(255,255,255,.75)", lineWidth: 3 });
     draw.drawLandmarks(lm, { radius: 3, color: "#ffffff", fillColor: "#1e7a4c" });
@@ -425,17 +538,369 @@ function resetJacks() {
   Object.assign(jk, { state: "closed", count: 0, half: 0, times: [], sawArms: false, sawLegs: false });
   $("bigCount").textContent = "0"; $("jCount").textContent = "0"; $("jHalf").textContent = "0"; $("jRate").textContent = "–";
 }
+const MODE_VIEW = {
+  lift:           { a: "Back bend", b: "Knee bend", c: "Twist", max: 120, unit: "°" },
+  jacks:          { a: "Arms", b: "Legs", c: null, max: 120, unit: "" },
+  "segak-step":   { a: "Left ankle height", b: "Right ankle height", c: "Knee bend", max: 120, unit: "" },
+  "segak-pushup": { a: "Elbow", b: "Body line", c: null, max: 180, unit: "°" },
+  "segak-curlup": { a: "Shoulder lift °", b: "Finger slide cm", c: null, max: 40, unit: "" },
+  "segak-reach":  { a: "Reach cm", b: "Knee bend °", c: null, max: 70, unit: "" }
+};
 function setExercise(v) {
+  if (T.phase !== "idle" && T.phase !== "done") testEnd("switched");
   exercise = v;
-  const j = v === "jacks";
-  $("jackPanel").hidden = !j; $("liftPanel").hidden = j;
-  $("bigCount").style.display = j ? "block" : "none";
-  $("lgA").textContent = j ? "Arms" : "Back bend";
-  $("lgB").textContent = j ? "Legs" : "Knee bend";
-  $("lgCw").hidden = j;
-  $("lgR").textContent = j ? "last 10 s" : "last 10 s, 0–120°";
+  const seg = v.startsWith("segak-");
+  $("jackPanel").hidden = v !== "jacks"; $("liftPanel").hidden = v !== "lift"; $("segakPanel").hidden = !seg;
+  document.querySelectorAll(".sp").forEach(el => el.hidden = el.id !== "sp-" + v.slice(6));
+  $("bigCount").style.display = (v === "jacks" || v === "segak-pushup" || v === "segak-curlup") ? "block" : "none";
+  $("bigCount").textContent = v === "jacks" ? jk.count : "0";
+  $("timer").textContent = ""; $("phase").textContent = "";
+  const mv = MODE_VIEW[v];
+  $("lgA").textContent = mv.a; $("lgB").textContent = mv.b;
+  $("lgCw").hidden = !mv.c;
+  if (mv.c) $("lgCw").lastChild.textContent = mv.c;
+  $("lgR").textContent = `last 10 s, 0–${mv.max}${mv.unit}`;
+  chartMax = mv.max;
   hist.length = 0;
-  if (j) { $("mirror").checked = true; applyMirror(); }
+  if (v === "jacks") { $("mirror").checked = true; applyMirror(); }
+  if (v === "segak-pushup") updatePushTitle();
+}
+
+// ======================= SEGAK =======================
+// Norm tables from Panduan SEGAK (KPM 2016), Jadual 3–18. Each entry: [5-score, 4, 3, 2] thresholds.
+// step: pulse, lower is better (score 5 if pulse <= t[0]); others: higher is better (score 5 if value >= t[0]).
+const NORMS = {"M":{"step":{"10":[79,101,125,148],"11":[78,101,124,147],"12":[77,100,123,146],"13":[76,98,121,143],"14":[76,98,121,143],"15":[75,97,120,142],"16":[74,96,119,140],"17":[70,91,112,133]},"pushup":{"10":[15,13,9,7],"11":[16,13,9,7],"12":[18,15,11,8],"13":[25,21,15,11],"14":[27,22,17,12],"15":[30,24,18,13],"16":[30,25,19,13],"17":[31,26,19,14]},"curlup":{"10":[18,15,11,8],"11":[19,16,12,8],"12":[20,16,12,8],"13":[21,17,13,9],"14":[22,18,13,9],"15":[23,19,14,10],"16":[23,19,14,10],"17":[23,19,14,10]},"reach":{"10":[37,32,25,19],"11":[39,32,25,18],"12":[39,32,25,19],"13":[42,34,25,16],"14":[44,35,26,17],"15":[46,37,27,17],"16":[47,37,27,17],"17":[48,38,27,17]}},"F":{"step":{"10":[84,108,133,158],"11":[86,111,136,161],"12":[83,107,132,156],"13":[82,106,130,154],"14":[81,104,128,152],"15":[80,104,128,151],"16":[78,100,124,146],"17":[75,97,120,142]},"pushup":{"10":[21,17,13,9],"11":[21,17,13,9],"12":[21,18,13,9],"13":[22,18,13,9],"14":[22,19,14,10],"15":[23,19,14,10],"16":[23,19,14,10],"17":[24,20,15,10]},"curlup":{"10":[18,15,11,8],"11":[18,15,11,8],"12":[18,15,11,8],"13":[19,16,11,8],"14":[19,16,11,8],"15":[19,16,11,8],"16":[19,16,11,8],"17":[19,16,12,8]},"reach":{"10":[35,30,24,18],"11":[36,31,25,19],"12":[38,32,25,20],"13":[39,33,26,20],"14":[39,33,27,21],"15":[40,34,27,21],"16":[41,35,28,21],"17":[41,35,28,22]}}};
+const TESTS = [
+  ["step", "Naik Turun Bangku 3 Minit", "beats/min"],
+  ["pushup", "Tekan Tubi", "reps"],
+  ["curlup", "Ringkuk Tubi Separa", "reps"],
+  ["reach", "Jangkauan Melunjur", "cm"]
+];
+const GRADES = [[18, "A", 5, "Kecergasan Sangat Tinggi"], [15, "B", 4, "Kecergasan Tinggi"], [12, "C", 3, "Cergas"], [8, "D", 2, "Kurang Cergas"], [4, "E", 1, "Tidak Cergas"]];
+const results = { step: null, pushup: null, curlup: null, reach: null };   // number, "none" (no score) or null
+const T = { kind: null, phase: "idle", t0: 0, dur: 0, reps: 0, bad: 0, consec: 0, st: {}, iv: null };
+
+const P = (lm, i) => ({ x: lm[i].x * W, y: lm[i].y * H, v: lm[i].visibility ?? 1 });
+function pickSide(lm, L, R) {
+  const vis = idx => idx.reduce((s, i) => s + (lm[i].visibility ?? 1), 0);
+  return (vis(L) >= vis(R) ? L : R).map(i => P(lm, i));
+}
+const cmPerPx = (k, a) => num("sHeight") * 0.25 / (Math.hypot(k.x - a.x, k.y - a.y) || 1);   // knee-to-ankle ≈ 25% of height
+const fmt = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const setT = (id, s) => { $(id).textContent = s; };
+const setLevel = (id, lvl) => { $(id).className = "m" + (lvl ? " " + lvl : ""); };
+
+function scoreOf(k, v) {
+  if (v == null || v === "none") return null;
+  const t = NORMS[$("sGender").value][k][$("sAge").value];
+  if (k === "step") return v <= t[0] ? 5 : v <= t[1] ? 4 : v <= t[2] ? 3 : v <= t[3] ? 2 : 1;
+  return v >= t[0] ? 5 : v >= t[1] ? 4 : v >= t[2] ? 3 : v >= t[3] ? 2 : 1;
+}
+function testName(k) { return k === "pushup" && $("sGender").value === "F" ? "Tekan Tubi Ubah Suai" : TESTS.find(t => t[0] === k)[1]; }
+function updatePushTitle() {
+  const f = $("sGender").value === "F";
+  setT("puTitle", f ? "Tekan Tubi Ubah Suai" : "Tekan Tubi");
+  setT("puBodyNote", f ? "shoulder–hip–knee, 180° = straight" : "shoulder–hip–ankle, 180° = straight");
+}
+function renderResults() {
+  const h = num("sHeight") / 100, w = num("sWeight");
+  setT("sBmi", h > 0 && w > 0 ? (w / (h * h)).toFixed(1) : "–");
+  let total = 0, complete = true, none = false;
+  $("sRes").innerHTML = TESTS.map(([k, , unit]) => {
+    const v = results[k], s = scoreOf(k, v);
+    if (v === "none") none = true;
+    if (s == null) complete = false; else total += s;
+    const shown = v == null ? "–" : v === "none" ? "No score" : `${v} ${unit}`;
+    return `<tr><td>${testName(k)}</td><td>${shown}</td><td class="sc">${s ?? "–"}</td></tr>`;
+  }).join("");
+  const box = $("sGrade");
+  if (none) { box.className = "grade F"; box.querySelector("b").textContent = "F"; setT("sGradeText", "Tiada Bintang · Tidak Melengkapkan Ujian SEGAK"); return; }
+  if (!complete) { box.className = "grade"; box.querySelector("b").textContent = total ? `${total}/20 so far` : "–"; setT("sGradeText", "Complete all four tests for the overall grade."); return; }
+  const g = GRADES.find(g => total >= g[0]);
+  box.className = "grade " + g[1]; box.querySelector("b").textContent = `${g[1]} · ${total}/20`;
+  setT("sGradeText", `${g[2]} Bintang · ${g[3]}`);
+}
+function copyResults() {
+  const lines = [`SEGAK · ${$("sGender").value === "M" ? "Lelaki" : "Perempuan"} ${$("sAge").value} tahun · BMI ${$("sBmi").textContent}`]
+    .concat(TESTS.map(([k, , unit]) => `${testName(k)}: ${results[k] ?? "-"}${typeof results[k] === "number" ? " " + unit : ""} (skor ${scoreOf(k, results[k]) ?? "-"})`))
+    .concat([`Gred: ${$("sGrade").querySelector("b").textContent} ${$("sGradeText").textContent}`]);
+  navigator.clipboard?.writeText(lines.join("\n")).then(() => status("Results copied"), () => status("Copy failed"));
+}
+
+// ---- metronome (Web Audio, scheduled ahead so the beat stays exact) ----
+const metro = { timer: null, next: 0, i: 0, bpm: 96, accent: 0, beats: [] };
+function click(when, hi) {
+  const a = audio(), o = a.createOscillator(), g = a.createGain();
+  o.frequency.value = hi ? 1500 : 900;
+  g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.35, when + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
+  o.connect(g).connect(a.destination); o.start(when); o.stop(when + 0.08);
+}
+function metroStart(bpm, accent) {
+  const a = audio();
+  Object.assign(metro, { bpm, accent, i: 0, next: a.currentTime + 0.05, beats: [] });
+  clearInterval(metro.timer);
+  metro.timer = setInterval(() => {
+    while (metro.next < a.currentTime + 0.15) {
+      const hi = metro.accent ? metro.i % metro.accent === 0 : true;
+      click(metro.next, hi);
+      const tPerf = performance.now() + (metro.next - a.currentTime) * 1000;
+      const idx = metro.i;
+      metro.beats.push({ i: idx, t: tPerf, hi });
+      setTimeout(() => flashBeat(hi), Math.max(0, tPerf - performance.now()));
+      metro.i++; metro.next += 60 / metro.bpm;
+    }
+  }, 25);
+}
+function metroStop() { clearInterval(metro.timer); metro.timer = null; }
+function flashBeat(hi) {
+  ["stBeat", "cuBeat"].forEach(id => { const el = $(id); el.classList.add("on"); el.style.background = hi ? "" : "var(--sky)"; setTimeout(() => { el.classList.remove("on"); el.style.background = ""; }, 120); });
+}
+
+// ---- test lifecycle ----
+function testStart(kind) {
+  if (mode === "none") { status("Start the webcam, load a video or replay a recording first."); return; }
+  audio();
+  if (T.phase !== "idle" && T.phase !== "done") testEnd("restart");
+  Object.assign(T, { kind, phase: "countdown", reps: 0, bad: 0, consec: 0, st: { state: kind === "pushup" ? "up" : "down", last: performance.now(), beatsChecked: -1, matched: new Set(), miss: 0, upL: null, upR: null, events: [], floor: [], kneeFlags: 0 } });
+  $("bigCount").textContent = "0";
+  if (kind === "pushup") { setT("puReps", "0"); setT("puBad", "0 not counted"); }
+  if (kind === "curlup") { setT("cuReps", "0"); setT("cuBad", "0 not counted"); }
+  if (kind === "step") { results.step = null; setT("stKneeN", "0"); renderResults(); }
+  let n = 3;
+  setT("phase", "Get ready"); setT("timer", "3"); say("tiga"); tone(660, 0, 0.15);
+  clearInterval(T.iv);
+  T.iv = setInterval(() => {
+    n--;
+    if (n > 0) { setT("timer", String(n)); say(n === 2 ? "dua" : "satu"); tone(660, 0, 0.15); return; }
+    clearInterval(T.iv);
+    T.phase = "run"; T.t0 = performance.now(); T.st.last = T.t0;
+    T.dur = kind === "step" ? 180000 : 60000;
+    tone(990, 0, 0.35); say("Mula");
+    setT("phase", { step: "Naik, naik, turun, turun", pushup: "1 minute", curlup: "Follow the beat" }[kind]);
+    if (kind === "step") metroStart(96, 4);
+    if (kind === "curlup") metroStart(50, 2);
+  }, 1000);
+}
+
+function testEnd(reason) {
+  clearInterval(T.iv); metroStop();
+  const k = T.kind, was = T.phase;
+  if (!k || was === "idle" || was === "done") return;
+  T.phase = "done";
+  const why = { time: "Time", stopped: "Stopped", form: "Ended: technique not correct", beat: "Ended: off the beat", max: "Maximum 25 reached", manual: "Stopped", restart: "Restarted", switched: "Mode changed" }[reason] || reason;
+  if (reason === "restart" || reason === "switched") { setT("phase", ""); setT("timer", ""); return; }
+  if (was === "countdown") { setT("phase", "Cancelled"); setT("timer", ""); return; }
+  if (was === "pulse-wait" || was === "pulse") { setT("phase", "Pulse timer stopped. Type the pulse and press Save pulse"); setT("timer", ""); return; }
+  if (k === "pushup" || k === "curlup") {
+    results[k] = T.reps; renderResults();
+    tone(523, 0, 0.2); tone(784, 0.15, 0.35);
+    say(`Tamat. ${T.reps}`);
+    setT("phase", `${why} · ${T.reps} reps · score ${scoreOf(k, T.reps)}`);
+    setT("timer", "");
+  } else if (k === "step") {
+    if (reason !== "time") {
+      results.step = "none"; renderResults();
+      setT("phase", "Stopped before 3 minutes: no score (rule 10)"); setT("timer", ""); buzz(); return;
+    }
+    // rest 5 s, then count the pulse for 60 s
+    T.phase = "pulse-wait"; say("Duduk sekarang"); tone(523, 0, 0.3);
+    const t0 = performance.now();
+    setT("phase", "Sit down now");
+    T.iv = setInterval(() => {
+      const el = performance.now() - t0;
+      if (el < 5000) { setT("timer", fmt(5000 - el)); return; }
+      if (T.phase === "pulse-wait") { T.phase = "pulse"; say("Kira nadi sekarang"); tone(990, 0, 0.3); setT("phase", "Count the pulse for 1 minute"); }
+      const left = 65000 - el;
+      setT("timer", fmt(Math.max(0, left)));
+      if (left <= 0) {
+        clearInterval(T.iv); T.phase = "done"; tone(990, 0, 0.2); tone(990, 0.3, 0.2); say("Berhenti. Masukkan bacaan nadi");
+        setT("phase", "Type the pulse and press Save pulse"); setT("timer", ""); $("stPulse").focus();
+      }
+    }, 200);
+  }
+}
+
+// timer for running tests
+setInterval(() => {
+  if (T.phase !== "run") return;
+  const left = T.dur - (performance.now() - T.t0);
+  setT("timer", fmt(Math.max(0, left)));
+  if (left <= 0) testEnd("time");
+}, 200);
+
+function goodRep() {
+  T.reps++; T.consec = 0;
+  const big = $("bigCount"); big.textContent = T.reps; big.classList.remove("pop"); void big.offsetWidth; big.classList.add("pop");
+  ding(T.reps % 10 === 0);
+  if (T.kind === "pushup") setT("puReps", T.reps);
+  if (T.kind === "curlup") setT("cuReps", T.reps);
+}
+function badRep(msg) {
+  T.bad++; T.consec++;
+  buzz(); cue(msg);
+  if (T.kind === "pushup") setT("puBad", `${T.bad} not counted`);
+  if (T.kind === "curlup") setT("cuBad", `${T.bad} not counted`);
+}
+
+function segakFrame(lm, t) {
+  const k = exercise.slice(6);
+  if (k === "pushup") pushFrame(lm, t);
+  else if (k === "curlup") curlFrame(lm, t);
+  else if (k === "step") stepFrame(lm, t);
+  else reachFrame(lm, t);
+}
+
+// ---- Tekan Tubi: up, chest to the 10 cm sponge, up = one rep; body straight throughout ----
+function pushFrame(lm, t) {
+  const female = $("sGender").value === "F";
+  const [s, e, w, h, k, a] = pickSide(lm, [11, 13, 15, 23, 25, 27], [12, 14, 16, 24, 26, 28]);
+  const elbow = ema("puE", angleAt(s, e, w), 0.5);
+  const body = ema("puB", female ? angleAt(s, h, k) : angleAt(s, h, a), 0.5);
+  const up = num("puUp"), down = num("puDown"), line = num("puLine");
+  setT("puElbow", `${elbow.toFixed(0)}°`); setLevel("puElbowBox", elbow <= down ? "good" : null);
+  setT("puBody", `${body.toFixed(0)}°`); setLevel("puBodyBox", body < line ? "bad" : "good");
+  pushHist(t, elbow, body, null);
+  const st = T.st;
+  setT("puState", T.kind === "pushup" ? `${T.phase} · ${st.state}` : "–");
+  if (!(T.phase === "run" && T.kind === "pushup")) return;
+  if (st.state === "up") {
+    if (elbow < up - 10) { st.state = "down"; st.minE = elbow; st.minB = body; st.last = t; }
+  } else {
+    st.minE = Math.min(st.minE, elbow); st.minB = Math.min(st.minB, body);
+    if (elbow >= up) {
+      st.state = "up"; st.last = t;
+      const deep = st.minE <= down, straight = st.minB >= line;
+      if (deep && straight) goodRep();
+      else {
+        badRep(!deep ? "Turun sampai dada sentuh span" : "Badan lurus");
+        if ($("puStrict").checked) { testEnd("form"); return; }
+      }
+    }
+  }
+  if (t - st.last > 6000) testEnd("stopped");
+}
+
+// ---- Ringkuk Tubi Separa: shoulders lift, fingers slide 10 cm, back down; one rep per 2 beats at 50/min ----
+function curlFrame(lm, t) {
+  const [s, w, h, k, a] = pickSide(lm, [11, 15, 23, 25, 27], [12, 16, 24, 26, 28]);
+  const elev = Math.atan2(h.y - s.y, Math.abs(s.x - h.x)) * DEG;   // shoulders above hips = positive
+  const dir = Math.sign(k.x - h.x) || 1;
+  const st = T.st, running = T.phase === "run" && T.kind === "curlup";
+  let base;
+  if (T.kind === "curlup" && T.phase !== "idle" && T.phase !== "done") {
+    if (T.phase === "countdown" || !st.base) st.base = { elev, wx: w.x };   // baseline while lying still in the countdown
+    base = st.base;
+  } else {
+    // outside a test: the lowest shoulder position in the last 4 s counts as lying flat
+    const ic = (T.idleCurl ??= []);
+    ic.push({ t, elev, wx: w.x });
+    while (ic.length && t - ic[0].t > 4000) ic.shift();
+    base = ic.reduce((m, r) => r.elev < m.elev ? r : m);
+  }
+  const lift = ema("cuL", elev - base.elev, 0.5);
+  const slide = ema("cuS", (w.x - base.wx) * dir * cmPerPx(k, a), 0.5);
+  const liftMin = num("cuLiftMin"), slideMin = num("cuSlideMin"), tol = num("cuTol");
+  setT("cuLift", `${lift.toFixed(0)}°`); setLevel("cuLiftBox", lift >= liftMin ? "good" : null);
+  setT("cuSlide", `${slide.toFixed(1)} cm`); setLevel("cuSlideBox", slide >= slideMin ? "good" : null);
+  pushHist(t, lift, slide, null);
+  if (!running) return;
+
+  if (st.state === "down") {
+    if (lift > liftMin * 0.5) { st.state = "up"; st.tUp = t; st.maxL = lift; st.maxS = slide; }
+  } else {
+    st.maxL = Math.max(st.maxL, lift); st.maxS = Math.max(st.maxS, slide);
+    if (lift < liftMin * 0.25) {
+      st.state = "down";
+      const good = st.maxL >= liftMin && st.maxS >= slideMin;
+      // the curl must start on a high beat (even beat index)
+      let best = null;
+      metro.beats.forEach(b => { if (b.i % 2 === 0 && !st.matched.has(b.i) && (!best || Math.abs(b.t - st.tUp) < Math.abs(best.t - st.tUp))) best = b; });
+      const onBeat = best && Math.abs(best.t - st.tUp) <= tol;
+      if (onBeat) st.matched.add(best.i);
+      if (good && onBeat) goodRep();
+      else {
+        badRep(!good ? (st.maxS < slideMin ? "Gelongsor sampai penanda" : "Angkat bahu") : "Ikut rentak");
+        if (T.consec >= 2) { testEnd("form"); return; }
+      }
+      if (T.reps >= 25) { testEnd("max"); return; }
+    }
+  }
+  // two high beats in a row with no curl = not following the metronome (beat 0 is a free start)
+  metro.beats.forEach(b => {
+    if (b.i % 2 !== 0 || b.i <= st.beatsChecked || b.i === 0 || b.t + tol + 300 > t) return;
+    st.beatsChecked = b.i;
+    if (st.matched.has(b.i) || (st.state === "up" && Math.abs(st.tUp - b.t) <= tol)) st.miss = 0;
+    else if (++st.miss >= 2) testEnd("beat");
+  });
+}
+
+// ---- Naik Turun Bangku: pace against 96/min, knees straight at top and bottom ----
+function stepFrame(lm, t) {
+  const aL = P(lm, 27), aR = P(lm, 28), kL = P(lm, 25), kR = P(lm, 26), hL = P(lm, 23), hR = P(lm, 24);
+  const st = T.kind === "step" ? T.st : (T.idleStep ??= { floor: [], events: [], upL: null, upR: null });
+  st.floor.push({ t, y: Math.max(aL.y, aR.y) });
+  while (st.floor.length && t - st.floor[0].t > 3000) st.floor.shift();
+  const floorY = Math.max(...st.floor.map(f => f.y));
+  const near = aL.v >= aR.v ? [kL, aL] : [kR, aR];
+  const benchPx = 30.5 / cmPerPx(near[0], near[1]);
+  const hgtL = (floorY - aL.y) / benchPx, hgtR = (floorY - aR.y) / benchPx;   // in bench heights
+  const upL = hgtL > 0.5, upR = hgtR > 0.5;
+  if (st.upL !== null && upL !== st.upL) st.events.push(t);
+  if (st.upR !== null && upR !== st.upR) st.events.push(t);
+  st.upL = upL; st.upR = upR;
+  while (st.events.length && t - st.events[0] > 10000) st.events.shift();
+  const cad = st.events.length * 6;
+  const bendL = 180 - angleAt(hL, kL, aL), bendR = 180 - angleAt(hR, kR, aR);
+  setT("stFeet", upL && upR ? "both up" : !upL && !upR ? "both down" : upL ? "left up" : "right up");
+  setT("stCad", T.phase === "run" && t - T.t0 < 10000 ? "…" : cad);
+  setLevel("stCadBox", T.phase === "run" && t - T.t0 > 10000 ? (Math.abs(cad - 96) <= 10 ? "good" : "warn") : null);
+  pushHist(t, Math.max(0, hgtL) * 60, Math.max(0, hgtR) * 60, Math.max(bendL, bendR));
+  if (!(T.phase === "run" && T.kind === "step")) return;
+  if ((upL && upR) || (!upL && !upR)) {
+    if (Math.max(bendL, bendR) > num("stKnee")) {
+      st.bent ??= t;
+      if (t - st.bent > 300 && t - (st.kneeCue || 0) > 3000) { st.kneeCue = t; st.kneeFlags++; setT("stKneeN", st.kneeFlags); setLevel("stKneeBox", "warn"); cue("Lurus lutut"); }
+    } else st.bent = null;
+  } else st.bent = null;
+  if (t - T.t0 > 15000 && Math.abs(cad - 96) > 10 && t - (st.paceCue || 0) > 8000) { st.paceCue = t; cue("Ikut rentak"); }
+}
+
+// ---- Jangkauan Melunjur: knees straight, hold 3 s, best of three ----
+const RE = { hist: [], held: false, kneeBent: false, attempts: [] };
+function reachFrame(lm, t) {
+  const [h, k, a, w] = pickSide(lm, [23, 25, 27, 15], [24, 26, 28, 16]);
+  const bend = ema("reK", 180 - angleAt(h, k, a), 0.5);
+  const dir = Math.sign(a.x - h.x) || 1;
+  const est = ema("reE", 23 + (w.x - a.x) * dir * cmPerPx(k, a), 0.5);
+  const bad = bend > num("reKneeMax");
+  if (bad) RE.kneeBent = true;
+  setT("reKnee", `${bend.toFixed(0)}° ${bad ? "bent" : "straight"}`); setLevel("reKneeBox", bad ? "bad" : "good");
+  setT("reEst", `${est.toFixed(0)} cm`);
+  pushHist(t, est, bend, null);
+  RE.hist.push({ t, v: est });
+  while (RE.hist.length && t - RE.hist[0].t > 3000) RE.hist.shift();
+  const vals = RE.hist.map(r => r.v), span = Math.max(...vals) - Math.min(...vals);
+  const stable = span < 1.5 && RE.hist.length > 5;
+  let held = 0;
+  for (let i = RE.hist.length - 1; i >= 0 && Math.abs(RE.hist[i].v - est) < 1.5; i--) held = t - RE.hist[i].t;
+  setBar("reHoldBar", held / 3000, held >= 2900);
+  setT("reHold", held >= 2900 ? `held at ${est.toFixed(0)} cm` : `${(held / 1000).toFixed(1)} s`);
+  if (stable && held >= 2900 && !RE.held && est > 15) {
+    RE.held = true; ding(false); cue("Bacaan diambil", true);
+    $("reVal").value = Math.round(est);
+  }
+  if (!stable) RE.held = false;
+}
+function saveReach() {
+  const v = Number($("reVal").value);
+  if (!v) { status("Type the ruler reading first."); return; }
+  if (RE.attempts.length >= 3) { status("Three attempts already; reset to start again."); return; }
+  RE.attempts.push({ v, ok: !RE.kneeBent });
+  RE.kneeBent = false; $("reVal").value = "";
+  const valid = RE.attempts.filter(a => a.ok).map(a => a.v);
+  results.reach = valid.length ? Math.max(...valid) : (RE.attempts.length === 3 ? "none" : null);
+  setT("reAttempts", "Attempts: " + RE.attempts.map((a, i) => `${i + 1}) ${a.v} cm${a.ok ? "" : " (knees bent, not counted)"}`).join(" · ") + ` · best ${valid.length ? Math.max(...valid) + " cm" : "–"}`);
+  renderResults();
 }
 
 function drawPose(lm, f) {
@@ -549,9 +1014,9 @@ function drawChart() {
   cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   cctx.clearRect(0, 0, cw, ch);
   if (!hist.length) return;
-  const t1 = hist[hist.length - 1].t, x = t => cw - (t1 - t) / 10000 * cw, y = v => ch - Math.min(v, 120) / 120 * ch;
+  const t1 = hist[hist.length - 1].t, x = t => cw - (t1 - t) / 10000 * cw, y = v => ch - Math.max(0, Math.min(v, chartMax)) / chartMax * ch;
   cctx.strokeStyle = css("--line"); cctx.lineWidth = 1;
-  [30, 60, 90].forEach(v => { cctx.beginPath(); cctx.moveTo(0, y(v)); cctx.lineTo(cw, y(v)); cctx.stroke(); });
+  [.25, .5, .75].map(f => f * chartMax).forEach(v => { cctx.beginPath(); cctx.moveTo(0, y(v)); cctx.lineTo(cw, y(v)); cctx.stroke(); });
   if (exercise === "lift") {
     cctx.setLineDash([4, 4]); cctx.strokeStyle = css("--c1");
     cctx.beginPath(); cctx.moveTo(0, y(num("thTrunk"))); cctx.lineTo(cw, y(num("thTrunk"))); cctx.stroke(); cctx.setLineDash([]);
@@ -612,6 +1077,19 @@ $("btnFreeze").onclick = () => {
 $("height").onchange = renderLog;
 $("exercise").onchange = e => setExercise(e.target.value);
 $("jReset").onclick = resetJacks;
+document.querySelectorAll("button.go").forEach(b => b.onclick = () => testStart(b.dataset.test));
+document.querySelectorAll("#segakPanel button.stop").forEach(b => b.onclick = () => testEnd("manual"));
+$("stSave").onclick = () => {
+  const v = Number($("stPulse").value);
+  if (!v) { status("Type the pulse first."); return; }
+  results.step = v; renderResults();
+};
+$("reSave").onclick = saveReach;
+$("reReset").onclick = () => { RE.attempts = []; RE.kneeBent = false; results.reach = null; setT("reAttempts", "Attempts: none yet (best of 3)"); renderResults(); };
+["sAge", "sGender", "sHeight", "sWeight"].forEach(id => $(id).addEventListener("change", () => { renderResults(); updatePushTitle(); }));
+$("sCopy").onclick = copyResults;
+$("sClear").onclick = () => { Object.keys(results).forEach(k => results[k] = null); renderResults(); };
+renderResults();
 if ("speechSynthesis" in window) speechSynthesis.getVoices();
 
 loadModel("full").catch(e => status("Model load failed: " + e.message));
