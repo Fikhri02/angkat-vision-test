@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Angkat Vision Test</title>
+<style>
+:root{
+  --paper:#f5f7fb; --card:#ffffff; --ink:#151a2e; --muted:#5a6280; --line:#dde2ee;
+  --accent:#c8213f; --sky:#2b5bd7; --good:#1e7a4c; --good-soft:#dff3e8; --warn:#9a6200; --warn-soft:#fbefd6; --bad:#b3261e; --bad-soft:#fbe2df;
+  --c1:#2b5bd7; --c2:#1e7a4c; --c3:#c8213f;
+  --mono:ui-monospace, Menlo, monospace; --body:system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#0f1324; --card:#171c33; --ink:#e8ebf6; --muted:#9aa2c0; --line:#2a3152;
+  --accent:#ff6b84; --sky:#8aa8ff; --good:#6fd6a0; --good-soft:#163527; --warn:#f0c060; --warn-soft:#3a2d12; --bad:#ff8a80; --bad-soft:#3d1a18;
+  --c1:#8aa8ff; --c2:#6fd6a0; --c3:#ff6b84; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 var(--body);padding:16px}
+h1{font-size:1.25rem;margin:0}
+header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+#status{font:12px var(--mono);color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start}
+@media (max-width:980px){.layout{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.view{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:16/9}
+.flip{position:absolute;inset:0}
+.flip.mirror{transform:scaleX(-1)}
+video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#cue{position:absolute;left:50%;top:14px;transform:translateX(-50%);padding:8px 16px;border-radius:999px;font:700 1.3rem var(--body);background:var(--bad);color:#fff;opacity:0;transition:opacity .2s}
+#cue.ok{background:var(--good)}
+#cue.show{opacity:1}
+#noPerson{position:absolute;inset:auto 0 12px 0;text-align:center;color:#fff;font:12px var(--mono);opacity:.8}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+button,select,input[type=number]{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:6px 10px;min-height:34px}
+button{cursor:pointer;font-weight:600}
+button:hover{border-color:var(--sky)}
+button.on{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+label{display:inline-flex;gap:6px;align-items:center}
+input[type=number]{width:72px}
+#chart{width:100%;height:140px;display:block;margin-top:10px}
+.legend{display:flex;gap:14px;font:12px var(--mono);color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:3px;margin-right:5px;vertical-align:middle}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.m span{display:block;font:11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.m b{font:600 1.35rem var(--mono);font-variant-numeric:tabular-nums}
+.m small{display:block;color:var(--muted);font-size:11px}
+.m.bad{background:var(--bad-soft);border-color:var(--bad)}
+.m.warn{background:var(--warn-soft);border-color:var(--warn)}
+.m.good{background:var(--good-soft);border-color:var(--good)}
+h2{font-size:.85rem;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.th{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+table{width:100%;border-collapse:collapse;font:12px var(--mono);font-variant-numeric:tabular-nums}
+th,td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--muted);font-weight:500}
+.flag{color:var(--bad);font-weight:600}
+.okf{color:var(--good);font-weight:600}
+.note{font-size:12px;color:var(--muted);margin-top:8px}
+#bigCount{position:absolute;right:16px;bottom:12px;font:800 4.5rem/1 var(--mono);color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.6);font-variant-numeric:tabular-nums;display:none}
+#bigCount.pop{animation:pop .25s ease}
+@keyframes pop{from{transform:scale(1.25)}to{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){#bigCount.pop{animation:none}}
+.bar{height:8px;border-radius:4px;background:var(--line);position:relative;margin-top:6px;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--sky);border-radius:4px}
+.bar.open i{background:var(--good)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <h1>Angkat vision test</h1>
+  <span id="status">Starting…</span>
+</header>
+
+<div class="layout">
+  <section class="card">
+    <div class="view">
+      <div class="flip mirror" id="flip">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div id="cue"></div>
+      <div id="noPerson"></div>
+      <div id="bigCount">0</div>
+    </div>
+    <div class="controls">
+      <label>Mode
+        <select id="exercise">
+          <option value="lift">Lifting coach</option>
+          <option value="jacks">Jumping jacks</option>
+        </select>
+      </label>
+      <button id="btnCam" type="button">Start webcam</button>
+      <label>Video file <input id="file" type="file" accept="video/*"></label>
+      <label>Model
+        <select id="model">
+          <option value="lite">Lite (fastest)</option>
+          <option value="full" selected>Full</option>
+          <option value="heavy">Heavy (most accurate)</option>
+        </select>
+      </label>
+      <label><input id="mirror" type="checkbox" checked> Mirror</label>
+      <label><input id="voice" type="checkbox" checked> Voice cues</label>
+      <button id="btnCal" type="button">Calibrate (stand straight)</button>
+      <button id="btnFreeze" type="button">Freeze</button>
+      <button id="btnRec" type="button">Record fixture</button>
+      <label>Replay <input id="replay" type="file" accept="application/json"></label>
+    </div>
+    <canvas id="chart"></canvas>
+    <div class="legend"><span><i style="background:var(--c1)"></i><b id="lgA" style="font-weight:400">Back bend</b></span><span><i style="background:var(--c2)"></i><b id="lgB" style="font-weight:400">Knee bend</b></span><span id="lgCw"><i style="background:var(--c3)"></i>Twist</span><span id="lgR">last 10 s, 0–120°</span></div>
+  </section>
+
+  <aside class="card">
+    <div id="jackPanel" hidden>
+      <div class="metrics">
+        <div class="m good" style="grid-column:1/-1"><span>Jumping jacks</span><b id="jCount" style="font-size:2.4rem">0</b><small>full reps: arms above shoulders and feet apart, then back together</small></div>
+        <div class="m"><span>Pace</span><b id="jRate">–</b><small>reps per minute</small></div>
+        <div class="m" id="jHalfBox"><span>Half reps</span><b id="jHalf">0</b><small>not counted</small></div>
+        <div class="m" style="grid-column:1/-1"><span>Arms</span><b id="jArms" style="font-size:1rem">–</b><div class="bar" id="jArmsBar"><i></i></div><small>wrist height above shoulders, in torso lengths</small></div>
+        <div class="m" style="grid-column:1/-1"><span>Legs</span><b id="jLegs" style="font-size:1rem">–</b><div class="bar" id="jLegsBar"><i></i></div><small>ankle gap ÷ hip width</small></div>
+        <div class="m"><span>Phase</span><b id="jState" style="font-size:1rem">closed</b></div>
+        <div class="m"><span>Confidence</span><b id="jConf">–</b></div>
+      </div>
+      <h2>Thresholds</h2>
+      <div class="th">
+        <span>Arms open above</span><input id="jArmOpen" type="number" value="0.15" step="0.05">
+        <span>Arms closed below</span><input id="jArmClosed" type="number" value="-0.35" step="0.05">
+        <span>Legs open above</span><input id="jLegOpen" type="number" value="1.8" step="0.1">
+        <span>Legs closed below</span><input id="jLegClosed" type="number" value="1.4" step="0.1">
+        <span>Sound on each rep</span><input id="jBeep" type="checkbox" checked>
+        <span>Count aloud</span><input id="jSay" type="checkbox">
+      </div>
+      <div class="controls"><button id="jReset" type="button">Reset count</button></div>
+      <p class="note">Face the camera, 2–3 m away, whole body and feet in frame. A rep only counts when both arms and legs open and then both close. If only one opens, it's logged as a half rep with a cue.</p>
+    </div>
+    <div id="liftPanel">
+    <div class="metrics">
+      <div class="m" id="mTrunk"><span>Back bend</span><b>–</b><small>0° = upright</small></div>
+      <div class="m" id="mKnee"><span>Knee bend</span><b>–</b><small>0° = straight leg</small></div>
+      <div class="m" id="mTwist"><span>Twist</span><b>–</b><small>shoulders vs hips (3D estimate)</small></div>
+      <div class="m" id="mReach"><span>Reach</span><b>–</b><small>hands ahead of ankles</small></div>
+      <div class="m" id="mZone" style="grid-column:1/-1"><span>Hand zone</span><b style="font-size:1rem">–</b><small>approximate, check against the DOSH 2018 figure</small></div>
+      <div class="m"><span>Lift state</span><b id="state" style="font-size:1rem">idle</b></div>
+      <div class="m"><span>Lifts / min</span><b id="rate">0</b></div>
+      <div class="m"><span>Confidence</span><b id="conf">–</b><small id="side">side used: –</small></div>
+      <div class="m"><span>FPS</span><b id="fps">–</b><small id="deleg">–</small></div>
+    </div>
+
+    <h2>Thresholds</h2>
+    <div class="th">
+      <span>Stoop: back bend above (°)</span><input id="thTrunk" type="number" value="45">
+      <span>…while knee bend below (°)</span><input id="thKnee" type="number" value="30">
+      <span>Twist above (°)</span><input id="thTwist" type="number" value="45">
+      <span>Reach above (shin lengths)</span><input id="thReach" type="number" value="1.0" step="0.1">
+      <span>Your height (cm), for reach in cm</span><input id="height" type="number" value="170">
+    </div>
+
+    <h2>Lift log</h2>
+    <table>
+      <thead><tr><th>#</th><th>Back</th><th>Knee</th><th>Twist</th><th>Reach</th><th>Result</th></tr></thead>
+      <tbody id="log"><tr><td colspan="6" style="color:var(--muted)">No lifts yet</td></tr></tbody>
+    </table>
+    <p class="note">A lift starts when your hands drop below knee height and ends when they rise to hip height. Back and knee are read at the lowest point. Put the camera side-on, about 2–3 m away, with your whole body and feet in frame.</p>
+    </div>
+  </aside>
+</div>
+
+<script type="module">
+import { PoseLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODELS = {
+  lite: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+  full: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
+  heavy: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task"
+};
+const DEG = 180 / Math.PI;
+const $ = id => document.getElementById(id);
+const video = $("video"), overlay = $("overlay"), ctx = overlay.getContext("2d");
+const draw = new DrawingUtils(ctx);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+let fileset = null, landmarker = null, modelName = "full", exercise = "lift";
+let mode = "none";            // none | live | replay
+let frozen = false, lastVideoTime = -1, W = 1280, H = 720;
+let recording = false, recStart = 0, frames = [];
+let cal = { knee: 1.0, knuckle: 1.7, elbow: 2.2, shoulder: 2.9, calibrated: false };
+let calibrating = null;
+const smooth = {};
+const hist = [];
+let lift = { state: "idle", cur: null };
+const log = [];
+let lastCue = 0;
+let fpsT = [], replayData = null, replayIdx = 0, replayT0 = 0;
+
+const status = s => $("status").textContent = s;
+const num = id => Number($(id).value);
+
+async function loadModel(kind) {
+  modelName = kind;
+  status(`Loading ${kind} model…`);
+  fileset ??= await FilesetResolver.forVisionTasks(WASM);
+  if (landmarker) { landmarker.close(); landmarker = null; }
+  const opts = d => ({ baseOptions: { modelAssetPath: MODELS[kind], delegate: d }, runningMode: "VIDEO", numPoses: 1,
+    minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5 });
+  let deleg = "GPU";
+  try { landmarker = await PoseLandmarker.createFromOptions(fileset, opts("GPU")); }
+  catch (e) { deleg = "CPU"; landmarker = await PoseLandmarker.createFromOptions(fileset, opts("CPU")); }
+  $("deleg").textContent = `${kind} · ${deleg}`;
+  status(`${kind} model ready (${deleg}). Start the webcam or load a video.`);
+}
+
+async function startWebcam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    video.srcObject = stream; video.src = "";
+    await video.play();
+    beginLive();
+    $("mirror").checked = true; applyMirror();
+  } catch (e) { status("Camera error: " + e.message); }
+}
+
+function startFile(file) {
+  if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
+  video.src = URL.createObjectURL(file); video.loop = true;
+  video.onloadeddata = () => { video.play(); beginLive(); $("mirror").checked = false; applyMirror(); };
+}
+
+function beginLive() {
+  mode = "live"; frozen = false; lastVideoTime = -1;
+  W = video.videoWidth || 1280; H = video.videoHeight || 720;
+  overlay.width = W; overlay.height = H;
+  status(`Running · ${modelName} model · ${W}×${H}`);
+  requestAnimationFrame(loop);
+}
+
+function loop() {
+  if (mode !== "live") return;
+  requestAnimationFrame(loop);
+  if (frozen || !landmarker || video.readyState < 2) return;
+  if (video.currentTime === lastVideoTime) return;
+  lastVideoTime = video.currentTime;
+  const now = performance.now();
+  let res;
+  try { res = landmarker.detectForVideo(video, now); } catch (e) { status("Detect error: " + e.message); return; }
+  tickFps(now);
+  const lm = res.landmarks?.[0], wl = res.worldLandmarks?.[0];
+  if (recording && lm) frames.push({ t: Math.round(now - recStart), lm: pack(lm), w: wl ? pack(wl) : null });
+  handle(lm, wl, now);
+}
+
+function tickFps(now) {
+  fpsT.push(now); while (fpsT.length && now - fpsT[0] > 1000) fpsT.shift();
+  $("fps").textContent = fpsT.length;
+}
+
+const pack = a => a.map(p => [+p.x.toFixed(4), +p.y.toFixed(4), +p.z.toFixed(4), +(p.visibility ?? 0).toFixed(3)]);
+const unpack = a => a.map(([x, y, z, v]) => ({ x, y, z, visibility: v }));
+
+// ---------- geometry ----------
+const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, v: Math.min(a.v, b.v) });
+function angleAt(a, b, c) {
+  const v1 = { x: a.x - b.x, y: a.y - b.y }, v2 = { x: c.x - b.x, y: c.y - b.y };
+  const d = (v1.x * v2.x + v1.y * v2.y) / (Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y) || 1);
+  return Math.acos(Math.max(-1, Math.min(1, d))) * DEG;
+}
+
+function features(lm, wl) {
+  const p = i => ({ x: lm[i].x * W, y: lm[i].y * H, v: lm[i].visibility ?? 1 });
+  const sL = p(11), sR = p(12), eL = p(13), eR = p(14), wL = p(15), wR = p(16), hL = p(23), hR = p(24), kL = p(25), kR = p(26), aL = p(27), aR = p(28);
+  const left = sL.v + hL.v + kL.v + aL.v >= sR.v + hR.v + kR.v + aR.v;
+  const [s, e, h, k, a] = left ? [sL, eL, hL, kL, aL] : [sR, eR, hR, kR, aR];
+  const sM = mid(sL, sR), hM = mid(hL, hR), aM = mid(aL, aR), wM = mid(wL, wR);
+  const trunk = Math.atan2(Math.abs(sM.x - hM.x), -(sM.y - hM.y)) * DEG;
+  const knee = 180 - angleAt(h, k, a);
+  let twist = null;
+  if (wl) {
+    const sx = wl[12].x - wl[11].x, sz = wl[12].z - wl[11].z, hx = wl[24].x - wl[23].x, hz = wl[24].z - wl[23].z;
+    let d = (Math.atan2(sz, sx) - Math.atan2(hz, hx)) * DEG;
+    d = ((d + 540) % 360) - 180;
+    twist = Math.abs(d);
+    if (twist > 90) twist = 180 - twist;
+  }
+  const shin = Math.hypot(k.x - a.x, k.y - a.y) || 1;
+  const floorY = Math.max(aL.v > 0.3 ? aL.y : 0, aR.v > 0.3 ? aR.y : 0) || a.y;
+  return {
+    side: left ? "left" : "right", trunk, knee, twist,
+    handH: (floorY - wM.y) / shin,
+    reach: Math.abs(wM.x - aM.x) / shin,
+    elbowH: (floorY - e.y) / shin, shoulderH: (floorY - s.y) / shin,
+    conf: Math.min(s.v, h.v, k.v, a.v), feet: a.v > 0.5,
+    pts: { sM, hM, k, a, h, wM }
+  };
+}
+
+function ema(key, val, alpha = 0.45) {
+  if (val == null) return null;
+  smooth[key] = smooth[key] == null ? val : smooth[key] + alpha * (val - smooth[key]);
+  return smooth[key];
+}
+
+function zoneOf(hh) {
+  if (hh < cal.knee * 0.5) return "Floor to mid-shin";
+  if (hh < cal.knuckle) return "Mid-shin to knuckle";
+  if (hh < cal.elbow) return "Knuckle to elbow";
+  if (hh < cal.shoulder) return "Elbow to shoulder";
+  return "Above shoulder";
+}
+
+// ---------- per frame ----------
+function handle(lm, wl, now) {
+  ctx.clearRect(0, 0, W, H);
+  if (mode === "replay") { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+  if (!lm) { $("noPerson").textContent = "No person detected"; return; }
+  $("noPerson").textContent = "";
+  if (exercise === "jacks") {
+    draw.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "rgba(255,255,255,.75)", lineWidth: 3 });
+    draw.drawLandmarks(lm, { radius: 3, color: "#ffffff", fillColor: "#1e7a4c" });
+    jacks(lm, now);
+    drawChart();
+    return;
+  }
+  const raw = features(lm, wl);
+  const f = { ...raw,
+    trunk: ema("trunk", raw.trunk), knee: ema("knee", raw.knee), twist: ema("twist", raw.twist),
+    handH: ema("handH", raw.handH, 0.6), reach: ema("reach", raw.reach) };
+
+  drawPose(lm, f);
+  if (calibrating) collectCalibration(raw, now);
+  updateMetrics(f);
+  liftMachine(f, now);
+  pushHist(now, f.trunk, f.knee, f.twist);
+  drawChart();
+}
+
+function pushHist(t, a, b, c) {
+  hist.push({ t, a, b, c });
+  while (hist.length && t - hist[0].t > 10000) hist.shift();
+}
+
+// ---------- jumping jacks ----------
+const jk = { state: "closed", count: 0, half: 0, times: [], sawArms: false, sawLegs: false };
+function jacks(lm, t) {
+  const p = i => ({ x: lm[i].x * W, y: lm[i].y * H, v: lm[i].visibility ?? 1 });
+  const sL = p(11), sR = p(12), wL = p(15), wR = p(16), hL = p(23), hR = p(24), aL = p(27), aR = p(28);
+  const sM = mid(sL, sR), hM = mid(hL, hR);
+  const torso = Math.hypot(sM.x - hM.x, sM.y - hM.y) || 1;
+  const arms = ema("arms", (sM.y - Math.max(wL.y, wR.y)) / torso, 0.6);   // the lower wrist must clear the shoulders
+  const legs = ema("legs", Math.abs(aL.x - aR.x) / (Math.abs(hL.x - hR.x) || 1), 0.6);
+  const armOpen = arms > num("jArmOpen"), armClosed = arms < num("jArmClosed");
+  const legOpen = legs > num("jLegOpen"), legClosed = legs < num("jLegClosed");
+
+  if (jk.state === "closed") {
+    if (armOpen || legOpen) { jk.state = "open"; jk.sawArms = armOpen; jk.sawLegs = legOpen; }
+  } else {
+    if (armOpen) jk.sawArms = true;
+    if (legOpen) jk.sawLegs = true;
+    if (armClosed && legClosed) {
+      if (jk.sawArms && jk.sawLegs) {
+        jk.count++; jk.times.push(t);
+        const big = $("bigCount"); big.textContent = jk.count; big.classList.remove("pop"); void big.offsetWidth; big.classList.add("pop");
+        if ($("jBeep").checked) ding(jk.count % 10 === 0);
+        if ($("jSay").checked) say(String(jk.count));
+      } else {
+        jk.half++;
+        if ($("jBeep").checked) buzz();
+        cue(jk.sawArms ? "Buka kaki luas" : "Angkat tangan tinggi");
+      }
+      jk.state = "closed";
+    }
+  }
+
+  jk.times = jk.times.filter(x => t - x < 60000);
+  const recent = jk.times.slice(-6);
+  const rate = recent.length >= 3 ? Math.round(60000 * (recent.length - 1) / (recent[recent.length - 1] - recent[0])) : null;
+  $("jCount").textContent = jk.count;
+  $("jRate").textContent = rate ?? "–";
+  $("jHalf").textContent = jk.half;
+  $("jHalfBox").className = "m" + (jk.half ? " warn" : "");
+  $("jState").textContent = jk.state;
+  $("jArms").textContent = arms.toFixed(2) + (armOpen ? "  open" : armClosed ? "  closed" : "");
+  $("jLegs").textContent = legs.toFixed(2) + (legOpen ? "  open" : legClosed ? "  closed" : "");
+  setBar("jArmsBar", (arms + 1.2) / 2, armOpen);
+  setBar("jLegsBar", legs / 3.5, legOpen);
+  const conf = Math.min(sL.v, sR.v, wL.v, wR.v, aL.v, aR.v);
+  $("jConf").textContent = `${Math.round(conf * 100)}%`;
+  $("jConf").parentElement.className = "m " + (conf < 0.5 ? "bad" : conf < 0.8 ? "warn" : "good");
+  pushHist(t, (arms + 1.5) * 40, legs * 30, null);
+}
+function setBar(id, frac, open) {
+  const el = $(id); el.classList.toggle("open", open);
+  el.querySelector("i").style.width = Math.max(0, Math.min(1, frac)) * 100 + "%";
+}
+// Web Audio sounds: a short rising ding per rep (a brighter chord every 10th), a low buzz for a half rep
+let actx = null;
+function audio() {
+  actx ??= new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === "suspended") actx.resume();
+  return actx;
+}
+function tone(freq, start, dur, type = "sine", gain = 0.25) {
+  const a = audio(), o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, a.currentTime + start);
+  g.gain.exponentialRampToValueAtTime(gain, a.currentTime + start + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + start + dur);
+  o.connect(g).connect(a.destination);
+  o.start(a.currentTime + start); o.stop(a.currentTime + start + dur + 0.02);
+}
+function ding(milestone) {
+  tone(880, 0, 0.12); tone(1320, 0.07, 0.18);
+  if (milestone) { tone(1760, 0.16, 0.3); tone(2217, 0.16, 0.3, "sine", 0.15); }
+}
+function buzz() { tone(160, 0, 0.22, "square", 0.08); }
+
+function say(text) {
+  if (!("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  const v = speechSynthesis.getVoices().find(v => /^(ms|id)/i.test(v.lang));
+  if (v) u.voice = v; u.lang = v ? v.lang : "ms-MY"; u.rate = 1.3;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+function resetJacks() {
+  Object.assign(jk, { state: "closed", count: 0, half: 0, times: [], sawArms: false, sawLegs: false });
+  $("bigCount").textContent = "0"; $("jCount").textContent = "0"; $("jHalf").textContent = "0"; $("jRate").textContent = "–";
+}
+function setExercise(v) {
+  exercise = v;
+  const j = v === "jacks";
+  $("jackPanel").hidden = !j; $("liftPanel").hidden = j;
+  $("bigCount").style.display = j ? "block" : "none";
+  $("lgA").textContent = j ? "Arms" : "Back bend";
+  $("lgB").textContent = j ? "Legs" : "Knee bend";
+  $("lgCw").hidden = j;
+  $("lgR").textContent = j ? "last 10 s" : "last 10 s, 0–120°";
+  hist.length = 0;
+  if (j) { $("mirror").checked = true; applyMirror(); }
+}
+
+function drawPose(lm, f) {
+  draw.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "rgba(255,255,255,.75)", lineWidth: 3 });
+  draw.drawLandmarks(lm, { radius: 3, color: "#ffffff", fillColor: "#2b5bd7" });
+  const stoop = f.trunk > num("thTrunk") && f.knee < num("thKnee");
+  ctx.lineWidth = 8; ctx.lineCap = "round";
+  ctx.strokeStyle = stoop ? "#ff4d5e" : f.trunk > num("thTrunk") ? "#f0c060" : "#4cd38a";
+  ctx.beginPath(); ctx.moveTo(f.pts.hM.x, f.pts.hM.y); ctx.lineTo(f.pts.sM.x, f.pts.sM.y); ctx.stroke();
+  ctx.strokeStyle = "#8aa8ff";
+  ctx.beginPath(); ctx.moveTo(f.pts.h.x, f.pts.h.y); ctx.lineTo(f.pts.k.x, f.pts.k.y); ctx.lineTo(f.pts.a.x, f.pts.a.y); ctx.stroke();
+}
+
+function setMetric(id, text, level) {
+  const el = $(id); el.querySelector("b").textContent = text;
+  el.classList.remove("bad", "warn", "good"); if (level) el.classList.add(level);
+}
+
+function updateMetrics(f) {
+  const tT = num("thTrunk"), tK = num("thKnee"), tW = num("thTwist"), tR = num("thReach");
+  setMetric("mTrunk", `${f.trunk.toFixed(0)}°`, f.trunk > tT ? (f.knee < tK ? "bad" : "warn") : null);
+  setMetric("mKnee", `${f.knee.toFixed(0)}°`, f.trunk > tT && f.knee < tK ? "bad" : null);
+  setMetric("mTwist", f.twist == null ? "–" : `${f.twist.toFixed(0)}°`, f.twist > tW ? "bad" : null);
+  const shinCm = num("height") * 0.285;
+  setMetric("mReach", `${f.reach.toFixed(2)}  ≈${Math.round(f.reach * shinCm)} cm`, f.reach > tR && lift.state === "low" ? "bad" : null);
+  setMetric("mZone", f.feet ? `${zoneOf(f.handH)} (${f.handH.toFixed(2)} shins)${cal.calibrated ? "" : " · not calibrated"}` : "Feet not visible", null);
+  $("conf").textContent = `${Math.round(f.conf * 100)}%`;
+  $("conf").parentElement.className = "m " + (f.conf < 0.5 ? "bad" : f.conf < 0.8 ? "warn" : "good");
+  $("side").textContent = `side used: ${f.side}`;
+}
+
+// ---------- lift detection ----------
+function liftMachine(f, t) {
+  const tT = num("thTrunk"), tK = num("thKnee"), tW = num("thTwist"), tR = num("thReach");
+  const low = f.handH < cal.knee;
+  const up = f.handH > cal.knuckle * 0.95;
+  const c = lift.cur;
+
+  if (lift.state === "carry") {
+    c.maxTwist = Math.max(c.maxTwist, f.twist ?? 0);
+    if (f.twist > tW && !c.flags.has("twist")) { c.flags.add("twist"); cue("Alih kaki, jangan pusing"); }
+    if (t - c.tUp > 3000 || low) finalize(t);
+  }
+  if (lift.state === "idle" && low) {
+    lift = { state: "low", cur: { tStart: t, minHand: f.handH, trunkAtLow: f.trunk, kneeAtLow: f.knee,
+      maxTwist: f.twist ?? 0, maxReach: f.reach, flags: new Set() } };
+  } else if (lift.state === "low") {
+    if (f.handH < c.minHand) { c.minHand = f.handH; c.trunkAtLow = f.trunk; c.kneeAtLow = f.knee; }
+    c.maxTwist = Math.max(c.maxTwist, f.twist ?? 0);
+    c.maxReach = Math.max(c.maxReach, f.reach);
+    if (f.trunk > tT && f.knee < tK && !c.flags.has("stoop")) { c.flags.add("stoop"); cue("Bengkokkan lutut"); }
+    if (f.reach > tR && !c.flags.has("reach")) { c.flags.add("reach"); cue("Dekatkan ke badan"); }
+    if (f.twist > tW && !c.flags.has("twist")) { c.flags.add("twist"); cue("Alih kaki, jangan pusing"); }
+    if (up) { c.tUp = t; lift.state = "carry"; if (c.flags.size === 0) cue("Bagus", true); }
+    else if (t - c.tStart > 10000) lift = { state: "idle", cur: null };
+  }
+  $("state").textContent = lift.state;
+  $("rate").textContent = log.filter(l => t - l.tEnd < 60000).length;
+}
+
+function finalize(t) {
+  const c = lift.cur; c.tEnd = t;
+  log.unshift(c); if (log.length > 12) log.pop();
+  lift = { state: "idle", cur: null };
+  renderLog();
+}
+
+function renderLog() {
+  const shinCm = num("height") * 0.285;
+  $("log").innerHTML = log.map((l, i) => `<tr><td>${log.length - i}</td><td>${l.trunkAtLow.toFixed(0)}°</td><td>${l.kneeAtLow.toFixed(0)}°</td><td>${l.maxTwist.toFixed(0)}°</td><td>${Math.round(l.maxReach * shinCm)}cm</td><td class="${l.flags.size ? "flag" : "okf"}">${l.flags.size ? [...l.flags].join(", ") : "good"}</td></tr>`).join("");
+}
+
+function cue(text, ok = false) {
+  const now = performance.now();
+  if (now - lastCue < 2500) return;
+  lastCue = now;
+  const el = $("cue"); el.textContent = text; el.className = ok ? "ok show" : "show";
+  setTimeout(() => el.classList.remove("show"), 1800);
+  if ($("voice").checked && "speechSynthesis" in window) {
+    const u = new SpeechSynthesisUtterance(text);
+    const v = speechSynthesis.getVoices().find(v => /^(ms|id)/i.test(v.lang));
+    if (v) u.voice = v; u.lang = v ? v.lang : "ms-MY"; u.rate = 1.05;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+}
+
+// ---------- calibration ----------
+function startCalibration() {
+  let n = 3;
+  status(`Stand straight, side-on, arms hanging… ${n}`);
+  const iv = setInterval(() => {
+    n--; if (n > 0) { status(`Stand straight, side-on, arms hanging… ${n}`); return; }
+    clearInterval(iv); calibrating = { until: performance.now() + 1500, s: [] }; status("Measuring…");
+  }, 1000);
+}
+function collectCalibration(raw, now) {
+  if (raw.trunk < 15 && raw.knee < 20 && raw.feet) calibrating.s.push(raw);
+  if (now < calibrating.until) return;
+  const s = calibrating.s; calibrating = null;
+  if (s.length < 5) { status("Calibration failed: stand straight with feet in frame, then retry."); return; }
+  const avg = k => s.reduce((a, r) => a + r[k], 0) / s.length;
+  cal = { knee: 1.0, knuckle: avg("handH"), elbow: avg("elbowH"), shoulder: avg("shoulderH"), calibrated: true };
+  status(`Calibrated: knuckle ${cal.knuckle.toFixed(2)}, elbow ${cal.elbow.toFixed(2)}, shoulder ${cal.shoulder.toFixed(2)} shin lengths`);
+}
+
+// ---------- chart ----------
+const chart = $("chart"), cctx = chart.getContext("2d");
+function drawChart() {
+  const dpr = devicePixelRatio || 1, cw = chart.clientWidth, ch = chart.clientHeight;
+  if (chart.width !== cw * dpr) { chart.width = cw * dpr; chart.height = ch * dpr; }
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cctx.clearRect(0, 0, cw, ch);
+  if (!hist.length) return;
+  const t1 = hist[hist.length - 1].t, x = t => cw - (t1 - t) / 10000 * cw, y = v => ch - Math.min(v, 120) / 120 * ch;
+  cctx.strokeStyle = css("--line"); cctx.lineWidth = 1;
+  [30, 60, 90].forEach(v => { cctx.beginPath(); cctx.moveTo(0, y(v)); cctx.lineTo(cw, y(v)); cctx.stroke(); });
+  if (exercise === "lift") {
+    cctx.setLineDash([4, 4]); cctx.strokeStyle = css("--c1");
+    cctx.beginPath(); cctx.moveTo(0, y(num("thTrunk"))); cctx.lineTo(cw, y(num("thTrunk"))); cctx.stroke(); cctx.setLineDash([]);
+  }
+  [["a", "--c1"], ["b", "--c2"], ["c", "--c3"]].forEach(([k, c]) => {
+    cctx.strokeStyle = css(c); cctx.lineWidth = 2; cctx.beginPath();
+    let started = false;
+    hist.forEach(h => { if (h[k] == null) return; started ? cctx.lineTo(x(h.t), y(h[k])) : cctx.moveTo(x(h.t), y(h[k])); started = true; });
+    cctx.stroke();
+  });
+}
+
+// ---------- record / replay ----------
+function toggleRecord() {
+  recording = !recording;
+  const b = $("btnRec");
+  if (recording) { frames = []; recStart = performance.now(); b.textContent = "Stop and download"; b.classList.add("on"); return; }
+  b.textContent = "Record fixture"; b.classList.remove("on");
+  const blob = new Blob([JSON.stringify({ meta: { model: modelName, W, H, cal, recorded: new Date().toISOString() }, frames })], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `angkat-fixture-${Date.now()}.json`; a.click();
+  status(`Saved ${frames.length} frames`);
+}
+
+async function startReplay(file) {
+  const data = JSON.parse(await file.text());
+  mode = "replay"; video.pause();
+  W = data.meta.W; H = data.meta.H; overlay.width = W; overlay.height = H;
+  if (data.meta.cal) cal = data.meta.cal;
+  replayData = data.frames; replayIdx = 0; replayT0 = performance.now();
+  status(`Replaying ${replayData.length} frames`);
+  requestAnimationFrame(replayLoop);
+}
+function replayLoop() {
+  if (mode !== "replay") return;
+  requestAnimationFrame(replayLoop);
+  if (frozen) return;
+  const el = performance.now() - replayT0;
+  let fr = null;
+  while (replayIdx < replayData.length && replayData[replayIdx].t <= el) fr = replayData[replayIdx++];
+  if (fr) { tickFps(performance.now()); handle(unpack(fr.lm), fr.w ? unpack(fr.w) : null, performance.now()); }
+  if (replayIdx >= replayData.length) { replayIdx = 0; replayT0 = performance.now(); }
+}
+
+// ---------- wiring ----------
+function applyMirror() { $("flip").classList.toggle("mirror", $("mirror").checked); }
+$("btnCam").onclick = () => { audio(); startWebcam(); };   // browsers only allow sound after a click
+$("jBeep").onchange = e => e.target.checked && ding(false);
+$("file").onchange = e => e.target.files[0] && startFile(e.target.files[0]);
+$("replay").onchange = e => e.target.files[0] && startReplay(e.target.files[0]);
+$("model").onchange = e => loadModel(e.target.value);
+$("mirror").onchange = applyMirror;
+$("btnCal").onclick = startCalibration;
+$("btnRec").onclick = toggleRecord;
+$("btnFreeze").onclick = () => {
+  frozen = !frozen; $("btnFreeze").textContent = frozen ? "Resume" : "Freeze";
+  if (mode === "live") frozen ? video.pause() : video.play();
+};
+$("height").onchange = renderLog;
+$("exercise").onchange = e => setExercise(e.target.value);
+$("jReset").onclick = resetJacks;
+if ("speechSynthesis" in window) speechSynthesis.getVoices();
+
+loadModel("full").catch(e => status("Model load failed: " + e.message));
+</script>
+</body>
+</html>
