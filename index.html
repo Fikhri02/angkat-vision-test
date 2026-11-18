@@ -78,6 +78,17 @@ button.stop{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
 .grade.D,.grade.E,.grade.F{background:var(--bad-soft);border-color:var(--bad)}
 .beat{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--line);vertical-align:middle;margin-left:6px}
 .beat.on{background:var(--accent)}
+#coach{position:absolute;left:10px;bottom:0;height:64%;pointer-events:none}
+#coach img{height:100%;width:auto;display:block;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55));transform-origin:bottom center}
+#coach img.talk{animation:talk .35s ease}
+@keyframes talk{0%{transform:scale(1)}40%{transform:scale(1.05) translateY(-3%)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){#coach img.talk{animation:none}}
+#bubble{position:absolute;left:78%;bottom:78%;width:max-content;max-width:min(320px,42vw);background:#fff;color:#1E1B18;border:3px solid #1E1B18;border-radius:16px;padding:8px 12px;font:800 clamp(.85rem,1.6vw,1.15rem)/1.25 var(--body)}
+#bubble::after{content:"";position:absolute;left:14px;bottom:-12px;border:10px solid transparent;border-top-color:#1E1B18;border-bottom:0}
+#bubble:empty{display:none}
+#bubble.angry{background:#fff1ee;border-color:#b3261e;color:#7a1410}
+#coachLog{font-size:12px;color:var(--muted);display:grid;gap:3px;margin-top:6px}
+#coachLog div:first-child{color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
@@ -98,12 +109,14 @@ button.stop{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
       <div id="bigCount">0</div>
       <div id="timer"></div>
       <div id="phase"></div>
+      <div id="coach" hidden><img id="coachImg" src="coach/sado_idle.png" alt="Abang Sado, the coach"><div id="bubble"></div></div>
     </div>
     <div class="controls">
       <label>Mode
         <select id="exercise">
           <option value="lift">Lifting coach</option>
           <option value="jacks">Jumping jacks</option>
+          <option value="coach">Coach Sado (push-ups)</option>
           <option value="segak-step">SEGAK 2: Naik Turun Bangku</option>
           <option value="segak-pushup">SEGAK 3: Tekan Tubi</option>
           <option value="segak-curlup">SEGAK 4: Ringkuk Tubi Separa</option>
@@ -131,6 +144,36 @@ button.stop{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
   </section>
 
   <aside class="card">
+    <div id="coachPanel" hidden>
+      <h2 style="margin-top:0">Coach Sado</h2>
+      <div class="th">
+        <span>Target reps</span><input id="cTarget" type="number" value="20" min="3">
+        <span>Intensity</span><select id="cInt">
+          <option value="1">1 · Manja</option>
+          <option value="2">2 · Biasa</option>
+          <option value="3" selected>3 · Garang</option>
+          <option value="4">4 · Sadis</option>
+          <option value="5">5 · Neraka</option>
+        </select>
+        <span>Language</span><select id="cLang">
+          <option value="ms">Bahasa Melayu</option>
+          <option value="en">English</option>
+          <option value="mix">Campur</option>
+        </select>
+        <span>On the knees</span><input id="cKnees" type="checkbox">
+        <span>Voice</span><input id="cVoice" type="checkbox" checked>
+      </div>
+      <div class="controls"><button class="go" id="cStart" type="button">Start set</button><button class="stop" id="cStop" type="button">Stop</button></div>
+      <div class="metrics" style="margin-top:10px">
+        <div class="m"><span>Sado's count</span><b id="cSaid">0</b><small id="cTargetNow">target 20</small></div>
+        <div class="m"><span>Real reps</span><b id="cReal">0</b><small id="cBad">0 not counted</small></div>
+        <div class="m" style="grid-column:1/-1" id="cFatBox"><span>Fatigue</span><b id="cFat" style="font-size:1rem">–</b><div class="bar" id="cFatBar"><i></i></div><small>slower reps, shallower reps, long pauses. Sado only goes easy past his limit</small></div>
+      </div>
+      <h2>What he said</h2>
+      <div id="coachLog"><div style="color:var(--muted);font-weight:400">Nothing yet. Start a set.</div></div>
+      <p class="note">Side view, whole body in frame. A soft tick means the camera counted a real rep; the number is Sado's opinion. Depth and body-line thresholds are shared with the SEGAK push-up mode.</p>
+    </div>
+
     <div id="segakPanel" hidden>
       <h2 style="margin-top:0">Student</h2>
       <div class="th">
@@ -420,6 +463,13 @@ function handle(lm, wl, now) {
   if (mode === "replay") { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
   if (!lm) { $("noPerson").textContent = "No person detected"; return; }
   $("noPerson").textContent = "";
+  if (exercise === "coach") {
+    draw.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "rgba(255,255,255,.75)", lineWidth: 3 });
+    draw.drawLandmarks(lm, { radius: 3, color: "#ffffff", fillColor: "#DE733B" });
+    coachFrame(lm, now);
+    drawChart();
+    return;
+  }
   if (exercise.startsWith("segak-")) {
     draw.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: "rgba(255,255,255,.75)", lineWidth: 3 });
     draw.drawLandmarks(lm, { radius: 3, color: "#ffffff", fillColor: "#c8213f" });
@@ -541,6 +591,7 @@ function resetJacks() {
 const MODE_VIEW = {
   lift:           { a: "Back bend", b: "Knee bend", c: "Twist", max: 120, unit: "°" },
   jacks:          { a: "Arms", b: "Legs", c: null, max: 120, unit: "" },
+  coach:          { a: "Elbow", b: "Body line", c: null, max: 180, unit: "°" },
   "segak-step":   { a: "Left ankle height", b: "Right ankle height", c: "Knee bend", max: 120, unit: "" },
   "segak-pushup": { a: "Elbow", b: "Body line", c: null, max: 180, unit: "°" },
   "segak-curlup": { a: "Shoulder lift °", b: "Finger slide cm", c: null, max: 40, unit: "" },
@@ -548,12 +599,14 @@ const MODE_VIEW = {
 };
 function setExercise(v) {
   if (T.phase !== "idle" && T.phase !== "done") testEnd("switched");
+  if (C.phase !== "idle" && C.phase !== "done") coachStop(true);
   exercise = v;
   const seg = v.startsWith("segak-");
   $("jackPanel").hidden = v !== "jacks"; $("liftPanel").hidden = v !== "lift"; $("segakPanel").hidden = !seg;
+  $("coachPanel").hidden = v !== "coach"; $("coach").hidden = v !== "coach";
   document.querySelectorAll(".sp").forEach(el => el.hidden = el.id !== "sp-" + v.slice(6));
-  $("bigCount").style.display = (v === "jacks" || v === "segak-pushup" || v === "segak-curlup") ? "block" : "none";
-  $("bigCount").textContent = v === "jacks" ? jk.count : "0";
+  $("bigCount").style.display = (v === "jacks" || v === "coach" || v === "segak-pushup" || v === "segak-curlup") ? "block" : "none";
+  $("bigCount").textContent = v === "jacks" ? jk.count : v === "coach" ? C.said : "0";
   $("timer").textContent = ""; $("phase").textContent = "";
   const mv = MODE_VIEW[v];
   $("lgA").textContent = mv.a; $("lgB").textContent = mv.b;
@@ -564,6 +617,265 @@ function setExercise(v) {
   hist.length = 0;
   if (v === "jacks") { $("mirror").checked = true; applyMirror(); }
   if (v === "segak-pushup") updatePushTitle();
+}
+
+// ======================= COACH SADO =======================
+// He counts real push-ups, but the number he says is his opinion. Near the end he repeats numbers,
+// takes reps away, adds to the target and chains "one last more". Intensity sets how often.
+// Only past his fatigue limit (higher intensity = later) does he count honestly to the end.
+const ONES = ["", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "lapan", "sembilan"];
+function malay(n) {
+  if (n <= 0) return "kosong";
+  if (n >= 100) return (n < 200 ? "seratus" : malay(Math.floor(n / 100)) + " ratus") + (n % 100 ? " " + malay(n % 100) : "");
+  if (n === 10) return "sepuluh";
+  if (n === 11) return "sebelas";
+  if (n < 10) return ONES[n];
+  if (n < 20) return ONES[n - 10] + " belas";
+  return ONES[Math.floor(n / 10)] + " puluh" + (n % 10 ? " " + ONES[n % 10] : "");
+}
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const LINES = {
+  ms: {
+    num: n => malay(n),
+    start: ["Sedia. Turun!", "Okay, mula. Jangan malukan aku.", "Turun! Aku kira."],
+    repeat: n => [`${malay(n)}... ${malay(n)}! Tak dengar!`, `${malay(n)}. Ulang. ${malay(n)}!`, `Tadi tu ${malay(n)} jugak.`],
+    minus: (f, t) => [`${malay(f)}... eh, ${malay(t)}. Turun tak cukup.`, `${malay(t)}. Aku tolak, badan bengkok.`, `Salah kira tadi. ${malay(t)}.`],
+    add: (n, k) => [`${malay(n)}! Tambah ${malay(k)}! Sebab aku suka.`, `${malay(n)}. Tambah ${malay(k)}. Protein window belum tutup!`],
+    last1: n => [`${malay(n)}! Satu lagi terakhir!`, `${malay(n)}. Okay, satu lagi. Terakhir. Janji.`, `${malay(n)}! Yang ni betul-betul last.`, `${malay(n)}... tadi tak kira. Satu lagi!`],
+    last2: n => [`${malay(n)}! Dua lagi terakhir!`, `${malay(n)}. Dua lagi, lepas tu balik.`],
+    oneMore: n => [`${malay(n)}! Satu lagi!`],
+    bad: ["Tak kira! Turun sampai bawah!", "Itu bukan push-up!", "Separuh je? Tak kira!"],
+    badLine: ["Badan lurus! Tak kira!", "Punggung jatuh! Tak kira!"],
+    slow: ["Laju sikit!", "Kenapa slow?!", "Bangun! Bangun!"],
+    stuck: ["Jangan tidur kat lantai!", "Bangun! Lantai tu bukan katil!"],
+    pause: ["Rehat? Siapa suruh rehat?", "Aku tak cakap rehat!"],
+    mercy: ["Okay, okay. Aku kesian.", "Hmm. Okay. Kita habiskan elok-elok."],
+    end: ["Okay. Bangun.", "Cukup. Bangun."],
+    fail: n => [`${n} je? Lemah!`, `${n}. Bulking cancel hari ni.`, `Baru ${n} dah tidur atas lantai.`, `${n}? Mak aku buat lebih sambil angkat tong gas.`, `Protein window dah tutup! ${n} je.`],
+    done: n => [`${n}. Boleh tahan. Untuk budak.`, `${n}. Esok tambah sepuluh.`, `Hmm, ${n}. Jangan bangga sangat.`],
+    reveal: (s, r) => `Aku kira ${s}. Kau sebenarnya buat ${r}.`
+  },
+  en: {
+    num: n => String(n),
+    start: ["Ready. Down!", "Right, go. Don't embarrass me.", "Down! I'm counting."],
+    repeat: n => [`${n}... ${n}! Can't hear you!`, `${n}. Again. ${n}!`, `That was ${n} as well.`],
+    minus: (f, t) => [`${f}... no, ${t}. Not deep enough.`, `${t}. Took one off, your back was bent.`, `Miscounted. ${t}.`],
+    add: (n, k) => [`${n}! Add ${k}! Because I said so.`, `${n}. Plus ${k}. Protein window's still open!`],
+    last1: n => [`${n}! One more, last one!`, `${n}. Okay, one LAST more. Promise.`, `${n}! This one's really the last.`, `${n}... that didn't count. One more!`],
+    last2: n => [`${n}! Two more, last ones!`, `${n}. Two more, then you can go.`],
+    oneMore: n => [`${n}! One more!`],
+    bad: ["Doesn't count! All the way down!", "That's not a push-up!", "Half a rep? Doesn't count!"],
+    badLine: ["Straight body! Doesn't count!", "Hips are sagging! Doesn't count!"],
+    slow: ["Faster!", "Why so slow?!", "Up! Up!"],
+    stuck: ["Don't sleep on the floor!", "Get up! The floor isn't your bed!"],
+    pause: ["Resting? Who said rest?", "I didn't say rest!"],
+    mercy: ["Okay, okay. I feel sorry for you.", "Fine. Let's finish this properly."],
+    end: ["Okay. Get up.", "Enough. Up."],
+    fail: n => [`${n}? That's it? Weak!`, `${n}. Bulking is cancelled today.`, `${n} and you're already napping on the floor.`, `${n}? My mum does more carrying a gas tank.`, `Protein window's closed! Only ${n}.`],
+    done: n => [`${n}. Not bad. For a kid.`, `${n}. Tomorrow, add ten.`, `Hmm, ${n}. Don't get cocky.`],
+    reveal: (s, r) => `I counted ${s}. You actually did ${r}.`
+  }
+};
+const INTENSITY = {   // weights near the end: [normal, repeat, minus, add]
+  1: { w: [0.9, 0.1, 0, 0], chainP: 0.3, chainMax: 1, early: 0, mercyAt: 0.3, adds: 0, tricks: 2 },
+  2: { w: [0.75, 0.15, 0.1, 0], chainP: 0.5, chainMax: 2, early: 0, mercyAt: 0.45, adds: 0, tricks: 4 },
+  3: { w: [0.6, 0.2, 0.15, 0.05], chainP: 0.7, chainMax: 3, early: 0.05, mercyAt: 0.6, adds: 1, tricks: 6 },
+  4: { w: [0.45, 0.25, 0.2, 0.1], chainP: 0.85, chainMax: 4, early: 0.08, mercyAt: 0.75, adds: 2, tricks: 9 },
+  5: { w: [0.3, 0.3, 0.25, 0.15], chainP: 0.95, chainMax: 6, early: 0.12, mercyAt: 0.9, adds: 2, tricks: 14 }
+};   // tricks: how many counting tricks per set before he counts straight (the "one last more" chain is separate)
+const C = { phase: "idle", target: 20, said: 0, real: 0, bad: 0, mercy: false, adds: 0, lastTroll: "", chainItems: 0, chainLeft: 0,
+  repTimes: [], depths: [], fatigue: 0, lastRepT: 0, t0: 0, tauntT: 0, st: { state: "up" }, iv: null, log: [] };
+
+function lang() { const l = $("cLang").value; return l === "mix" ? (Math.random() < 0.5 ? "ms" : "en") : l; }
+function L(key, ...args) {
+  const lg = lang();
+  let v = LINES[lg][key];
+  if (typeof v === "function") v = v(...args);
+  return { text: Array.isArray(v) ? pick(v) : v, lg };
+}
+function coachSay({ text, lg }, mood = "idle") {
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  const img = $("coachImg");
+  img.src = mood === "angry" ? "coach/sado_angry.png" : "coach/sado_idle.png";
+  img.classList.remove("talk"); void img.offsetWidth; img.classList.add("talk");
+  const b = $("bubble"); b.textContent = text; b.className = mood === "angry" ? "angry" : "";
+  C.log.unshift(text); C.log = C.log.slice(0, 8);
+  $("coachLog").innerHTML = C.log.map(l => `<div></div>`).join("");
+  [...$("coachLog").children].forEach((d, i) => d.textContent = C.log[i]);
+  if ($("cVoice").checked && "speechSynthesis" in window) {
+    const u = new SpeechSynthesisUtterance(text);
+    const voices = speechSynthesis.getVoices();
+    const v = lg === "ms" ? voices.find(v => /^(ms|id)/i.test(v.lang)) : voices.find(v => /^en[-_](GB|AU|US)/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang));
+    if (v) u.voice = v; u.lang = v ? v.lang : (lg === "ms" ? "ms-MY" : "en-GB");
+    u.rate = 1.12; u.pitch = 0.7;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+}
+function coachStats() {
+  $("bigCount").textContent = C.said;
+  setT("cSaid", C.said); setT("cTargetNow", `target ${C.target}`);
+  setT("cReal", C.real); setT("cBad", `${C.bad} not counted`);
+  setT("cFat", `${Math.round(C.fatigue * 100)}%${C.mercy ? " · mercy mode" : ""}`);
+  setBar("cFatBar", C.fatigue, C.mercy);
+  setLevel("cFatBox", C.fatigue >= INTENSITY[$("cInt").value].mercyAt ? "warn" : null);
+}
+
+function coachStart() {
+  if (mode === "none") { status("Start the webcam, load a video or replay a recording first."); return; }
+  audio();
+  if (C.phase !== "idle" && C.phase !== "done") coachStop(true);
+  Object.assign(C, { phase: "countdown", target: Math.max(3, num("cTarget")), said: 0, real: 0, bad: 0, mercy: false, adds: 0, tricks: 0, lastTroll: "",
+    chainItems: 0, chainLeft: 0, repTimes: [], depths: [], fatigue: 0, tauntT: 0, st: { state: "up" }, log: [] });
+  coachStats();
+  let n = 3;
+  coachSay({ text: lang() === "en" ? "Three" : "Tiga", lg: lang() }); tone(660, 0, 0.15);
+  clearInterval(C.iv);
+  C.iv = setInterval(() => {
+    n--;
+    if (n > 0) { coachSay({ text: ["", "Satu", "Dua"][n], lg: "ms" }); tone(660, 0, 0.15); return; }
+    clearInterval(C.iv);
+    C.phase = "count"; C.t0 = C.lastRepT = performance.now();
+    tone(990, 0, 0.3);
+    coachSay(L("start"), "angry");
+  }, 1000);
+}
+function coachStop(silent) {
+  clearInterval(C.iv);
+  if (C.phase === "count" || C.phase === "chain") { if (!silent) coachEnd(false); else C.phase = "done"; }
+  else C.phase = "done";
+}
+
+function rollAction() {
+  const I = INTENSITY[$("cInt").value];
+  if (C.mercy || C.said === 0 || C.tricks >= I.tricks) return "normal";
+  const win = Math.max(3, Math.round(C.target * 0.3));
+  let a = "normal";
+  if (C.said >= C.target - win) {
+    let r = Math.random(), acc = 0;
+    const names = ["normal", "repeat", "minus", "add"];
+    for (let i = 0; i < 4; i++) { acc += I.w[i]; if (r < acc) { a = names[i]; break; } }
+  } else if (Math.random() < I.early) a = "repeat";
+  if (a === C.lastTroll && a !== "normal") a = "normal";            // never the same trick twice in a row
+  if (a === "minus" && C.said < 3) a = "normal";
+  if (a === "add" && C.adds >= I.adds) a = "normal";
+  return a;
+}
+
+function onRealRep(t) {
+  C.real++;
+  tone(620, 0, 0.05, "sine", 0.08);   // soft tick: the camera saw a real rep
+  const dt = t - C.lastRepT; C.lastRepT = t;
+  if (C.real > 1) C.repTimes.push(dt);
+  C.depths.push(C.st.minE);
+  updateFatigue();
+  maybeMercy();
+
+  if (C.phase === "chain") {
+    C.said++; C.chainLeft--;
+    if (C.chainLeft === 1) coachSay(L("oneMore", C.said));
+    else if (C.chainLeft <= 0) {
+      C.chainItems--;
+      if (C.chainItems > 0 && !C.mercy) startChainItem();
+      else { coachSay({ text: LINES[lang()].num(C.said) + "!", lg: lang() }); coachEnd(true); }
+    }
+    coachStats(); return;
+  }
+
+  const a = rollAction();
+  const I = INTENSITY[$("cInt").value];
+  if (a === "repeat") coachSay(L("repeat", C.said), "angry");
+  else if (a === "minus") {
+    const k = 1 + Math.floor(Math.random() * ($("cInt").value >= 4 ? 3 : 2));
+    const from = C.said + 1;            // the number this rep should have been
+    C.said = Math.max(1, from - k);     // ...and what he decides it is
+    coachSay(L("minus", from, C.said), "angry");
+  } else if (a === "add") {
+    C.said++; const k = 3 + Math.floor(Math.random() * 3); C.target += k; C.adds++;
+    coachSay(L("add", C.said, k), "angry");
+  } else {
+    C.said++;
+    if (C.said < C.target) coachSay({ text: LINES[lang()].num(C.said), lg: lang() });
+  }
+  C.lastTroll = a === "normal" ? "" : a;
+  if (a !== "normal") C.tricks++;
+
+  if (C.said >= C.target) {
+    if (!C.mercy && Math.random() < I.chainP) { C.phase = "chain"; C.chainItems = 1 + Math.floor(Math.random() * I.chainMax); startChainItem(); }
+    else { coachSay({ text: LINES[lang()].num(C.said) + "!", lg: lang() }); coachEnd(true); }
+  }
+  coachStats();
+}
+function startChainItem() {
+  const two = Math.random() < 0.3;
+  C.chainLeft = two ? 2 : 1;
+  coachSay(L(two ? "last2" : "last1", C.said), "angry");
+}
+function onBadRep(deep) {
+  C.bad++; buzz();
+  coachSay(L(deep ? "badLine" : "bad"), "angry");
+  coachStats();
+}
+function median(a) { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; }
+function updateFatigue() {
+  const rt = C.repTimes, dp = C.depths;
+  let f = 0;
+  if (rt.length >= 3) {
+    const base = median(rt.slice(0, 3)), recent = (rt[rt.length - 1] + rt[Math.max(0, rt.length - 2)]) / 2;
+    f = Math.max(f, Math.min(1, Math.max(0, (recent / base - 1.3) / 1.2)));
+  }
+  if (dp.length >= 4) {
+    const base = median(dp.slice(0, 3));
+    f = Math.max(f, Math.min(1, Math.max(0, (dp[dp.length - 1] - base) / 25)));
+  }
+  C.fatigue = Math.max(C.fatigue * 0.6, f);
+}
+function maybeMercy() {
+  if (C.mercy || C.real < 4) return;
+  if (C.fatigue >= INTENSITY[$("cInt").value].mercyAt) {
+    C.mercy = true;
+    if (C.phase === "chain") C.chainItems = 1;
+    coachSay(L("mercy"));
+  }
+}
+function coachEnd(completed) {
+  C.phase = "done";
+  const n = C.real;
+  setTimeout(() => {
+    const harsh = !completed || $("cInt").value >= 4;
+    coachSay(L(completed ? "done" : "fail", completed ? C.said : n), harsh ? "angry" : "idle");
+    setTimeout(() => coachSay(L("reveal", C.said, n), harsh ? "angry" : "idle"), 2600);
+  }, completed ? 900 : 200);
+  coachStats();
+}
+
+function coachFrame(lm, t) {
+  const [s, e, w, h, k, a] = pickSide(lm, [11, 13, 15, 23, 25, 27], [12, 14, 16, 24, 26, 28]);
+  const elbow = ema("coE", angleAt(s, e, w), 0.5);
+  const body = ema("coB", $("cKnees").checked ? angleAt(s, h, k) : angleAt(s, h, a), 0.5);
+  pushHist(t, elbow, body, null);
+  if (C.phase !== "count" && C.phase !== "chain") return;
+  const up = num("puUp"), down = num("puDown"), line = num("puLine"), st = C.st;
+  if (st.state === "up") {
+    if (elbow < up - 10) { st.state = "down"; st.minE = elbow; st.minB = body; st.downAt = t; }
+    else if (C.real > 0 && t - C.lastRepT > 3000 && t - C.tauntT > 4000) {   // resting at the top
+      C.tauntT = t; C.fatigue = Math.max(C.fatigue, 0.6); maybeMercy();
+      if (!C.mercy) coachSay(L("pause"), "angry"); coachStats();
+    }
+  } else {
+    st.minE = Math.min(st.minE, elbow); st.minB = Math.min(st.minB, body);
+    if (elbow >= up) {
+      st.state = "up";
+      const deep = st.minE <= down, straight = st.minB >= line;
+      if (deep && straight) onRealRep(t); else onBadRep(deep);
+    } else if (t - st.downAt > 2500 && t - C.tauntT > 4000) {                // stuck at the bottom
+      C.tauntT = t; C.fatigue = Math.max(C.fatigue, 0.85); maybeMercy();
+      if (!C.mercy) coachSay(L("stuck"), "angry"); coachStats();
+    }
+  }
+  if (C.real >= 3 && C.repTimes.length && t - C.lastRepT > median(C.repTimes) * 1.8 && t - C.tauntT > 5000 && !C.mercy && st.state === "down") {
+    C.tauntT = t; coachSay(L("slow"), "angry");
+  }
+  if (t - Math.max(C.lastRepT, st.downAt || 0) > 7000) coachEnd(false);      // gave up
 }
 
 // ======================= SEGAK =======================
@@ -1088,6 +1400,8 @@ $("reSave").onclick = saveReach;
 $("reReset").onclick = () => { RE.attempts = []; RE.kneeBent = false; results.reach = null; setT("reAttempts", "Attempts: none yet (best of 3)"); renderResults(); };
 ["sAge", "sGender", "sHeight", "sWeight"].forEach(id => $(id).addEventListener("change", () => { renderResults(); updatePushTitle(); }));
 $("sCopy").onclick = copyResults;
+$("cStart").onclick = coachStart;
+$("cStop").onclick = () => coachStop(false);
 $("sClear").onclick = () => { Object.keys(results).forEach(k => results[k] = null); renderResults(); };
 renderResults();
 if ("speechSynthesis" in window) speechSynthesis.getVoices();
