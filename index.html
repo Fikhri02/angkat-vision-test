@@ -693,6 +693,16 @@ function L(key, ...args) {
   if (typeof v === "function") v = v(...args);
   return { text: Array.isArray(v) ? pick(v) : v, lg };
 }
+// Prefer real male voices for Sado; Malay has only female voices on most machines (Amira on macOS), so pitch is lowered.
+const VOICE_PREF = {
+  ms: ["Amira", "Google Bahasa Indonesia", "Damayanti"],
+  en: ["Daniel", "Google UK English Male", "Rishi", "Aaron", "Fred", "Microsoft Guy", "Microsoft David"]
+};
+function coachVoice(lg) {
+  const vs = speechSynthesis.getVoices();
+  for (const name of VOICE_PREF[lg]) { const v = vs.find(v => v.name.startsWith(name)); if (v) return v; }
+  return lg === "ms" ? vs.find(v => /^(ms|id)/i.test(v.lang)) : vs.find(v => /^en[-_](GB|AU)/i.test(v.lang) && v.localService);
+}
 function coachSay({ text, lg }, mood = "idle") {
   text = text.charAt(0).toUpperCase() + text.slice(1);
   const img = $("coachImg");
@@ -704,8 +714,7 @@ function coachSay({ text, lg }, mood = "idle") {
   [...$("coachLog").children].forEach((d, i) => d.textContent = C.log[i]);
   if ($("cVoice").checked && "speechSynthesis" in window) {
     const u = new SpeechSynthesisUtterance(text);
-    const voices = speechSynthesis.getVoices();
-    const v = lg === "ms" ? voices.find(v => /^(ms|id)/i.test(v.lang)) : voices.find(v => /^en[-_](GB|AU|US)/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang));
+    const v = coachVoice(lg);
     if (v) u.voice = v; u.lang = v ? v.lang : (lg === "ms" ? "ms-MY" : "en-GB");
     u.rate = 1.12; u.pitch = 0.7;
     speechSynthesis.cancel(); speechSynthesis.speak(u);
